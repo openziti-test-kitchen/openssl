@@ -399,8 +399,22 @@ static ssize_t syscall_random(void *buf, size_t buflen)
      || (defined(__NetBSD__) && __NetBSD_Version >= 1000000000)
     return getrandom(buf, buflen, 0);
 #  else
-    errno = ENOSYS;
-    return -1;
+    /**
+     * Ziti
+     * 
+     * When we cross-compile this library into WebAssembly, there will be no entropy source in the WASM sandbox.
+     * To compemsate for that gap, we will call out to the JavaScript level, and the consuming wrapper will utilize
+     * the browser's 'crypto' mechanism to generate the random bytes.
+     * 
+     * The external JS-based 'ziti_getentropy' function is expected to be resolved during the emscripten linking process.
+     * 
+     */
+    ziti_getentropy(buf, buflen);
+    
+    return buflen;
+
+    // errno = ENOSYS;
+    // return -1;
 #  endif
 }
 #  endif    /* defined(OPENSSL_RAND_SEED_GETRANDOM) */

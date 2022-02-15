@@ -11,6 +11,15 @@
 # define OSSL_CRYPTO_EVP_H
 # pragma once
 
+/**
+ * ziti_getentropy
+ * 
+ * An external JS-based function, resolved during the emscripten linking process, that will utilize
+ * the browser's 'crypto' mechanism to generate random bytes.
+ */
+extern void ziti_getentropy(void*, int);
+
+
 # include <openssl/evp.h>
 # include <openssl/core_dispatch.h>
 # include "internal/refcount.h"

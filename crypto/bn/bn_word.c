@@ -53,6 +53,17 @@ BN_ULONG BN_mod_word(const BIGNUM *a, BN_ULONG w)
 #else
         ret = (BN_ULLONG) (((ret << (BN_ULLONG) BN_BITS2) | a->d[i]) %
                            (BN_ULLONG) w);
+        /**
+         * Ziti
+         * 
+         * There is an as-yet unexplained quirk in the execution of the WASM produced by
+         * the emscripten compiler.  The quirk is that the value of the 'ret' variable is 
+         * reset to zero when we exit this for-loop closure.  To work around the issue,
+         * we simply return from here.
+         */
+        if (i == 0) {
+            return (BN_ULONG)ret;
+        }
 #endif
     }
     return (BN_ULONG)ret;
