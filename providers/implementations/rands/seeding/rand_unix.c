@@ -21,6 +21,14 @@
 #include "internal/dso.h"
 #include "prov/seeding.h"
 
+/**
+ * ziti_getentropy
+ *
+ * An external JS-based function, resolved during the emscripten linking process, that will utilize
+ * the browser's 'crypto' mechanism to generate random bytes.
+ */
+extern void ziti_getentropy(void*, int);
+
 #ifdef __linux
 # include <sys/syscall.h>
 # ifdef DEVRANDOM_WAIT
