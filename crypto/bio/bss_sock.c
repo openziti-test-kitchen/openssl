@@ -13,6 +13,8 @@
 #include "internal/cryptlib.h"
 #include "internal/ktls.h"
 
+#include <emscripten.h>
+
 #ifndef OPENSSL_NO_SOCK
 
 # include <openssl/bio.h>
@@ -100,6 +102,33 @@ static int sock_free(BIO *a)
     return 1;
 }
 
+/**
+ *  ziti_readsocket
+ *
+ *  Provide a socket abstraction, and use async i/o, to read bytes from the Edge Router
+ */
+EM_ASYNC_JS(int, ziti_readsocket, (int fd, char *out_parm, int outl_parm), {
+
+    // Get the Channel that maps to this fd
+    let fd_ch = _zitiContext._channelsById.get( fd );
+    if (!fd_ch) { throw new Error('cannot find ZitiChannel'); }
+
+    // Pull the requested number of bytes off the 'socket'
+    let data = await fd_ch.tlsConn.fd_read( outl_parm );
+
+    // Transfer the bytes into the WebAssembly heap
+    // TODO: do this in a smarter, more efficient way, cuz this is expensive
+    let ndx = 0;
+    let dataview = new DataView(data, ndx);
+    while (ndx < data.byteLength) {
+        let byte = dataview.getUint8(ndx);
+        Module.setValue(out_parm+ndx, byte, 'i8');
+        ndx++;
+    }
+
+    return data.byteLength;
+});
+
 static int sock_read(BIO *b, char *out, int outl)
 {
     int ret = 0;
@@ -111,7 +140,8 @@ static int sock_read(BIO *b, char *out, int outl)
             ret = ktls_read_record(b->num, out, outl);
         else
 # endif
-            ret = readsocket(b->num, out, outl);
+            // ret = readsocket(b->num, out, outl);
+            ret = ziti_readsocket(b->num, out, outl);
         BIO_clear_retry_flags(b);
         if (ret <= 0) {
             if (BIO_sock_should_retry(ret))
