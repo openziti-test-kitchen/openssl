@@ -10,6 +10,8 @@
 #include "bio_local.h"
 #include "internal/thread_once.h"
 
+#include <emscripten.h>
+
 CRYPTO_RWLOCK *bio_type_lock = NULL;
 static CRYPTO_ONCE bio_type_init = CRYPTO_ONCE_STATIC_INIT;
 
@@ -112,15 +114,62 @@ int (*BIO_meth_get_read_ex(const BIO_METHOD *biom)) (BIO *, char *, size_t, size
     return biom->bread;
 }
 
+
+/**
+ *  acquireTLSReadLock
+ * 
+ *  OpenSSL handles are NOT thread-safe, so we must synchronize our access to it.
+ * 
+ */
+EM_ASYNC_JS(void, acquireTLSReadLock, (int fd), {
+    console.log("wasm.acquireTLSReadLock() --> for fd[%d]", fd);
+    const wasmFD = _zitiContext._wasmFDsById.get( fd );
+    if (wasmFD) {
+        await wasmFD.socket.acquireTLSReadLock();
+    }
+    console.log("wasm.acquireTLSReadLock() --> LOCK ACQUIRED");
+});
+
+/**
+ *  releaseTLSReadLock
+ * 
+ *  OpenSSL handles are NOT thread-safe, so we must synchronize our access to it.
+ * 
+ */
+EM_JS(void, releaseTLSReadLock, (int fd), {
+    console.log("wasm.releaseTLSReadLock() <-- for fd[%d]", fd);
+    const wasmFD = _zitiContext._wasmFDsById.get( fd );
+    if (wasmFD) {
+        wasmFD.socket.releaseTLSReadLock();
+    }
+    console.log("wasm.releaseTLSReadLock() <-- LOCK RELEASED");
+    return;
+});
+
+// static int bread_conv_ctr = 0;
+
 /* Conversion for old style bread to new style */
 int bread_conv(BIO *bio, char *data, size_t datal, size_t *readbytes)
 {
     int ret;
+    // int _bread_conv_ctr = bread_conv_ctr++;
 
     if (datal > INT_MAX)
         datal = INT_MAX;
 
+    // printf("wasm.bread_conv() bread_conv_ctr[%d] entered with datal[%zu]\n", _bread_conv_ctr, datal);
+
+    // int fd = bio->num;
+
+    // acquireTLSReadLock(fd);
+
+    // printf("wasm.bread_conv() bread_conv_ctr[%d] calling bio->method->bread_old with datal[%zu]\n", _bread_conv_ctr, datal);
+
     ret = bio->method->bread_old(bio, data, (int)datal);
+
+    // printf("wasm.bread_conv() bread_conv_ctr[%d] datal[%zu] ret[%d]\n", _bread_conv_ctr, datal, ret);
+
+    // releaseTLSReadLock(fd);
 
     if (ret <= 0) {
         *readbytes = 0;

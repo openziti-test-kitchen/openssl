@@ -107,30 +107,54 @@ static int sock_free(BIO *a)
  *
  *  Provide a socket abstraction, and use async i/o, to read bytes from the Edge Router
  */
-EM_ASYNC_JS(int, ziti_readsocket, (int fd, char *out_parm, int outl_parm), {
 
-    // Get the Channel that maps to this fd
-    let fd_ch = _zitiContext._channelsById.get( fd );
-    if (!fd_ch) { throw new Error('cannot find ZitiChannel'); }
+//temp
+#undef _EM_ZITI_JS
+#undef EM_ZITI_ASYNC_JS
+
+#define _EM_ZITI_JS(ret, c_name, js_name, params, pnames, code)                                            \
+  _EM_JS_CPP_BEGIN                                                                                 \
+  ret c_name params EM_IMPORT(js_name);                                                            \
+  EMSCRIPTEN_KEEPALIVE                                                                             \
+  __attribute__((section("em_js"), aligned(1))) char __em_js__##js_name[] =                        \
+    #params "<::>" code;                                                                           \
+  _EM_JS_CPP_END
+
+#define _Args(...) __VA_ARGS__
+#define STRIP_PARENS(X) X
+#define PASS_PARAMETERS(X) STRIP_PARENS( _Args (X) )
+#define ESC(...) __VA_ARGS__
+
+#define EM_ZITI_ASYNC_JS(ret, name, params, pnames, ...) _EM_ZITI_JS(ret, name, __asyncjs__##name, params, pnames,       \
+  "{ let arg = Object.assign({}, {ziti_readsocket_ctr, fd, out_parm, outl_parm}); return Asyncify.handleAsync(arg, async () => " #__VA_ARGS__ "); }")
+//temp
+EM_ZITI_ASYNC_JS(int, ziti_readsocket, (int ziti_readsocket_ctr, int fd, char *out_parm, int outl_parm), (ziti_readsocket_ctr, fd, out_parm, outl_parm), {
+
+    // Get the 'socket' that maps to this fd
+    console.log('ziti_readsocket() entered fd[%d] out_parm[%o] outl_parm[%o]', fd, out_parm, outl_parm);
+    let wasmFD = _zitiContext._wasmFDsById.get( fd );
+    if (!wasmFD) { throw new Error('cannot find wasmFD'); }
+
+    // LOCK: OpenSSL handles are NOT thread-safe, so we must synchronize our access to it
+    // await wasmFD.socket.acquireTLSReadLock();
 
     // Pull the requested number of bytes off the 'socket'
-    let data = await fd_ch.tlsConn.fd_read( outl_parm );
+    console.log('ziti_readsocket() fd[%d] now awaiting wasmFD.socket.fd_read()', fd);
+    let data = await wasmFD.socket.fd_read( outl_parm );
+    console.log('ziti_readsocket() fd[%d] wasmFD.socket.fd_read() returned [%o]', fd, data);
+
+    // UNLOCK: OpenSSL handles are NOT thread-safe, so we must synchronize our access to it
+    // wasmFD.socket.releaseTLSReadLock();
 
     // Transfer the bytes into the WebAssembly heap
-    // TODO: do this in a smarter, more efficient way, cuz this is expensive
-    let ndx = 0;
-    let dataview = new DataView(data, ndx);
-    while (ndx < data.byteLength) {
-        let byte = dataview.getUint8(ndx);
-        Module.setValue(out_parm+ndx, byte, 'i8');
-        ndx++;
-    }
+    Module.HEAPU8.set(new Uint8Array(data), out_parm);
 
     return data.byteLength;
 });
 
 static int sock_read(BIO *b, char *out, int outl)
 {
+    static int ziti_readsocket_ctr = 0;
     int ret = 0;
 
     if (out != NULL) {
@@ -141,7 +165,7 @@ static int sock_read(BIO *b, char *out, int outl)
         else
 # endif
             // ret = readsocket(b->num, out, outl);
-            ret = ziti_readsocket(b->num, out, outl);
+            ret = ziti_readsocket(ziti_readsocket_ctr++, b->num, out, outl);
         BIO_clear_retry_flags(b);
         if (ret <= 0) {
             if (BIO_sock_should_retry(ret))

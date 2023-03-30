@@ -300,6 +300,9 @@ static int bio_read_intern(BIO *b, void *data, size_t dlen, size_t *readbytes)
     /* Shouldn't happen */
     if (ret > 0 && *readbytes > dlen) {
         ERR_raise(ERR_LIB_BIO, ERR_R_INTERNAL_ERROR);
+
+        printf("wasm.bio_read_intern() 'Should not happen': ret[%d] *readbytes[%zu] dlen[%zu] \n", ret, *readbytes, dlen);
+
         return -1;
     }
 
