@@ -442,12 +442,15 @@ BIO *BIO_new_ssl_connect(SSL_CTX *ctx)
 #ifndef OPENSSL_NO_SOCK
     BIO *ret = NULL, *con = NULL, *ssl = NULL;
 
-    if ((con = BIO_new(BIO_s_connect())) == NULL)
+    if ((con = BIO_new(BIO_s_connect())) == NULL) {
         return NULL;
-    if ((ssl = BIO_new_ssl(ctx, 1)) == NULL)
+    }
+    if ((ssl = BIO_new_ssl(ctx, 1)) == NULL) {
         goto err;
-    if ((ret = BIO_push(ssl, con)) == NULL)
+    }
+    if ((ret = BIO_push(ssl, con)) == NULL) {
         goto err;
+    }
     return ret;
  err:
     BIO_free(ssl);
@@ -461,8 +464,9 @@ BIO *BIO_new_ssl(SSL_CTX *ctx, int client)
     BIO *ret;
     SSL *ssl;
 
-    if ((ret = BIO_new(BIO_f_ssl())) == NULL)
+    if ((ret = BIO_new(BIO_f_ssl())) == NULL) {
         return NULL;
+    }
     if ((ssl = SSL_new(ctx)) == NULL) {
         BIO_free(ret);
         return NULL;

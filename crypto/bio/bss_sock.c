@@ -190,22 +190,21 @@ static int ziti_readTLSDataQueue(BIO *b, char *out, int outl)
     TLSDataQueue *tlsDataQueue;
     TLSDataNODE *tlsDataNode;
 
-    // printf("ziti_readTLSDataQueue() entered for fd[%d] out[%p] len[%d]\n", b->num, out, outl);
+    // printf("ziti_readTLSDataQueue() entered for BIO[%p] fd[%d] out[%p] outl[%d]\n", b, b->num, out, outl);
 
     // Get queue for specified FD.  The various sleep calls are done to yield/wait for 
     // initial incoming data for the FD, which will cause creation of the TLSDataQueue
     do {
         tlsDataQueue = fd_kv_getItem( b->num );
         if (NULL == tlsDataQueue) {
-            // printf("ziti_readTLSDataQueue() cannot locate TLSDataQueue for fd[%d]\n", b->num);
-            // printf("waiting for incoming data from wsER (1)...\n");
-            emscripten_sleep(5);
+            // printf("ziti_readTLSDataQueue() cannot locate TLSDataQueue for fd[%d], now waiting for incoming data from wsER (1)\n", b->num);
+            emscripten_sleep(100);
         } else {
+            // printf("ziti_readTLSDataQueue() pQueue[%p] fd[%d] pQueue->size[%d]\n", tlsDataQueue, tlsDataQueue->fd, tlsDataQueue->size);
             tlsDataNode = peekTLSData(tlsDataQueue);
             if (NULL == tlsDataNode) {
-                // printf("ziti_readTLSDataQueue() cannot locate TLSDataNODE for fd[%d]\n", b->num);
-                // printf("waiting for incoming data from wsER (2)...\n");
-                emscripten_sleep(5);
+                printf("ziti_readTLSDataQueue() cannot locate TLSDataNODE for fd[%d], now waiting for incoming data from wsER (2)\n", b->num);
+                emscripten_sleep(100);
             }
         }
     }
@@ -213,12 +212,13 @@ static int ziti_readTLSDataQueue(BIO *b, char *out, int outl)
 
     // Provide data from the TLSDataQueue to the caller
     do {
+        tlsDataQueue = fd_kv_getItem( b->num );
+
         // Get top data node
         tlsDataNode = peekTLSData(tlsDataQueue);
         if (NULL == tlsDataNode) {
-            // printf("ziti_readTLSDataQueue() no TLSDataNODE for fd[%d]\n", b->num);
-            // printf("waiting for incoming data from wsER (3)...\n");
-            emscripten_sleep(5);
+            // printf("ziti_readTLSDataQueue() no TLSDataNODE for fd[%d], now waiting for incoming data from wsER (3)\n", b->num);
+            emscripten_sleep(100);
             continue;
         }
         if (tlsDataNode->data.offset >= tlsDataNode->data.len) {
@@ -255,6 +255,7 @@ static int ziti_readTLSDataQueue(BIO *b, char *out, int outl)
         printf("ERROR: memcpyLenTotal[%d] !== outl[%d]", memcpyLenTotal, outl);
     }
 
+    // printf("ziti_readTLSDataQueue() returning, memcpyLenTotal[%d]\n", memcpyLenTotal);
     return( memcpyLenTotal );
 }
 
@@ -304,7 +305,7 @@ static int sock_write(BIO *b, const char *in, int inl)
 {
     int ret = 0;
 
-    printf("wasm.sock_write() entered: fd[%d] in[%p] len[%d]\n", b->num, in, inl);
+    // printf("wasm.sock_write() entered: bio[%p] fd[%d] in[%p] len[%d]\n", b, b->num, in, inl);
     // hexdump(in, inl);
 
     clear_socket_error();

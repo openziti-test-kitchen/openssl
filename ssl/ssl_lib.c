@@ -1851,10 +1851,13 @@ int ssl_read_internal(SSL *s, void *buf, size_t num, size_t *readbytes)
         args.f.func_read = s->method->ssl_read;
 
         ret = ssl_start_async_job(s, &args, ssl_io_intern);
+        // printf("wasm.ssl_read_internal() ssl_start_async_job returned [%d]\n", ret);
         *readbytes = s->asyncrw;
         return ret;
     } else {
-        return s->method->ssl_read(s, buf, num, readbytes);
+        int ret =  s->method->ssl_read(s, buf, num, readbytes);
+        // printf("wasm.ssl_read_internal() s->method->ssl_read returned [%d]\n", ret);
+        return ret;
     }
 }
 
@@ -1865,6 +1868,7 @@ int SSL_read(SSL *s, void *buf, int num)
 
     if (num < 0) {
         ERR_raise(ERR_LIB_SSL, SSL_R_BAD_LENGTH);
+        // printf("wasm.SSL_read() input num is < 0 so we will return -1\n");
         return -1;
     }
 
