@@ -203,7 +203,7 @@ static int ziti_readTLSDataQueue(BIO *b, char *out, int outl)
             // printf("ziti_readTLSDataQueue() pQueue[%p] fd[%d] pQueue->size[%d]\n", tlsDataQueue, tlsDataQueue->fd, tlsDataQueue->size);
             tlsDataNode = peekTLSData(tlsDataQueue);
             if (NULL == tlsDataNode) {
-                printf("ziti_readTLSDataQueue() cannot locate TLSDataNODE for fd[%d], now waiting for incoming data from wsER (2)\n", b->num);
+                // printf("ziti_readTLSDataQueue() cannot locate TLSDataNODE for fd[%d], now waiting for incoming data from wsER (2)\n", b->num);
                 emscripten_sleep(100);
             }
         }
@@ -222,7 +222,7 @@ static int ziti_readTLSDataQueue(BIO *b, char *out, int outl)
             continue;
         }
         if (tlsDataNode->data.offset >= tlsDataNode->data.len) {
-            printf("ziti_readTLSDataQueue() ERROR: TLSDataNODE has no remaining unconsumed data fd[%d] offset[%d] len[%d]\n", b->num, tlsDataNode->data.offset, tlsDataNode->data.len);
+            // printf("ziti_readTLSDataQueue() ERROR: TLSDataNODE has no remaining unconsumed data fd[%d] offset[%d] len[%d]\n", b->num, tlsDataNode->data.offset, tlsDataNode->data.len);
             return( -1 );
         }
 
@@ -287,7 +287,7 @@ static int sock_read(BIO *b, char *out, int outl)
             // ret = ziti_readsocket(ziti_readsocket_ctr++, b->num, out, outl);
 
             ret = ziti_readTLSDataQueue(b, out, outl);
-            printf("sock_read() fd[%d] ziti_readTLSDataQueue returned: [%d] outl was [%d]\n", b->num, ret, outl);
+            // printf("sock_read() fd[%d] ziti_readTLSDataQueue returned: [%d] outl was [%d]\n", b->num, ret, outl);
             // hexdump(out, ret);
 
         BIO_clear_retry_flags(b);
@@ -321,7 +321,7 @@ static int sock_write(BIO *b, const char *in, int inl)
 # endif
         // the following call will eventually call js-library.js:fd_write()
         ret = writesocket(b->num, in, inl);
-        printf("wasm.sock_write() writesocket() returned [%d]\n", ret);
+        // printf("wasm.sock_write() writesocket() returned [%d]\n", ret);
     BIO_clear_retry_flags(b);
     if (ret <= 0) {
         if (BIO_sock_should_retry(ret))
